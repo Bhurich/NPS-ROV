@@ -54,6 +54,7 @@ type NavItem = { href: string; label: string; icon: React.ReactNode; admin?: boo
 const publicNav: NavItem[] = [
   { href: "/", label: "Dashboard", icon: <Activity size={18} /> },
   { href: "/live", label: "Live", icon: <Video size={18} /> },
+  { href: "/replays", label: "Replays", icon: <Play size={18} /> },
   { href: "/bracket", label: "Bracket", icon: <Swords size={18} /> },
   { href: "/schedule", label: "Schedule", icon: <CalendarDays size={18} /> },
   { href: "/scoreboard", label: "Scoreboard", icon: <Zap size={18} /> },
@@ -152,6 +153,7 @@ function App() {
       <>
         {path === "/bracket" && <BracketPage data={data} />}
         {path === "/live" && <LivePage data={data} />}
+        {path === "/replays" && <ReplaysPage data={data} />}
         {path === "/schedule" && <SchedulePage data={data} />}
         {path === "/scoreboard" && <ScoreboardPage data={data} />}
         {path === "/teams" && <TeamsPage data={data} />}
@@ -539,6 +541,56 @@ function ScoreTeam({ team, wins, winner }: { team?: Team; wins: number; winner: 
       <strong>{team?.name ?? "รอการจับสลาก"}</strong>
       <em>{wins}</em>
     </div>
+  );
+}
+
+function ReplaysPage({ data }: { data: AppData }) {
+  const [query, setQuery] = useState("");
+  const replayMatches = data.matches
+    .filter((match) => match.status === "Finished" || match.replayUrl)
+    .filter((match) => {
+      const text = `${teamName(data, match.teamAId)} ${teamName(data, match.teamBId)} M${match.matchNumber} ${match.round}`.toLowerCase();
+      return text.includes(query.toLowerCase());
+    })
+    .sort((a, b) => b.matchNumber - a.matchNumber);
+
+  return (
+    <PageFrame eyebrow="PUBLIC VIEW" title="Match Replays" subtitle="รวมลิงก์ดูย้อนหลังของแมตช์ที่แข่งจบแล้ว ผู้ชมเลือกเปิดดูแต่ละคู่ได้">
+      <div className="filters">
+        <label className="search-field"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="ค้นหาแมตช์ / ทีม / รอบ" /></label>
+      </div>
+      <div className="replay-grid">
+        {replayMatches.length ? replayMatches.map((match) => <ReplayCard key={match.id} data={data} match={match} />) : <EmptyState text="ยังไม่มีแมตช์ย้อนหลังให้รับชม" />}
+      </div>
+    </PageFrame>
+  );
+}
+
+function ReplayCard({ data, match }: { data: AppData; match: Match }) {
+  const teamA = data.teams.find((team) => team.id === match.teamAId);
+  const teamB = data.teams.find((team) => team.id === match.teamBId);
+  return (
+    <article className="replay-card">
+      <div className="score-card-head">
+        <strong>M{match.matchNumber} · {match.round}</strong>
+        <StatusBadge status={match.status} />
+      </div>
+      <div className="replay-teams">
+        <img src={teamA?.logoUrl || "https://api.dicebear.com/9.x/shapes/svg?seed=team-a"} alt={teamA?.name ?? "Team A"} />
+        <div>
+          <strong>{teamName(data, match.teamAId)} vs {teamName(data, match.teamBId)}</strong>
+          <span>{match.matchDate ? formatDate(match.matchDate) : "รอระบุวัน"} · {match.matchTime || "-"}</span>
+          <em>Score {match.teamAScoreGames} - {match.teamBScoreGames}</em>
+          {match.winnerTeamId && <em>Winner: {teamName(data, match.winnerTeamId)}</em>}
+        </div>
+        <img src={teamB?.logoUrl || "https://api.dicebear.com/9.x/shapes/svg?seed=team-b"} alt={teamB?.name ?? "Team B"} />
+      </div>
+      {match.replayUrl ? (
+        <a className="primary-btn live-link" href={match.replayUrl} target="_blank" rel="noreferrer"><ExternalLink size={18} /> {match.replayLabel || "ดูย้อนหลัง"}</a>
+      ) : (
+        <div className="notice">ยังไม่ได้ใส่ลิงก์ดูย้อนหลัง</div>
+      )}
+    </article>
   );
 }
 
@@ -933,6 +985,8 @@ function MatchEditor({ data, match, commit }: { data: AppData; match: Match; com
         <label>Time<input type="time" value={match.matchTime} onChange={(event) => set({ matchTime: event.target.value })} /></label>
         <label>Location<input value={match.location} onChange={(event) => set({ location: event.target.value })} /></label>
         <label>Status<select value={match.status} onChange={(event) => set({ status: event.target.value as MatchStatus })}>{["Waiting", "Live", "Finished", "Cancelled"].map((item) => <option key={item}>{item}</option>)}</select></label>
+        <label>Replay Button Text<input value={match.replayLabel ?? ""} onChange={(event) => set({ replayLabel: event.target.value })} placeholder="ดูย้อนหลัง / MS Teams Recording" /></label>
+        <label>Replay URL<input value={match.replayUrl ?? ""} onChange={(event) => set({ replayUrl: event.target.value })} placeholder="วางลิงก์วิดีโอย้อนหลังของแมตช์นี้" /></label>
       </div>
       <div className="games-editor">
         {[1, 2, 3].map((game) => (

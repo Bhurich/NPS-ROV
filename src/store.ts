@@ -38,6 +38,8 @@ export type Match = {
   winnerTeamId?: string;
   status: MatchStatus;
   nextMatchId?: string;
+  replayUrl?: string;
+  replayLabel?: string;
   note: string;
   createdAt: string;
   updatedAt: string;
