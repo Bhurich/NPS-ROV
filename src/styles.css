@@ -103,6 +103,8 @@ textarea { min-height: 76px; padding: 10px 12px; resize: vertical; }
 .team-card small { color: #2dd4bf; font-weight: 800; }
 .team-card span, .team-card em { color: #94a3b8; font-style: normal; font-size: 13px; margin-top: 4px; }
 .team-status { position: absolute; top: 12px; right: 12px; padding: 5px 8px; border-radius: 8px; background: rgba(255,255,255,.08); color: #cbd5e1; font-size: 12px; }
+.team-status.qualified { color: #bbf7d0; background: rgba(34,197,94,.22); border: 1px solid rgba(34,197,94,.28); }
+.team-status.eliminated { color: #fecaca; background: rgba(239,68,68,.2); border: 1px solid rgba(239,68,68,.28); }
 .team-status.champion { color: #fef08a; background: rgba(250,204,21,.18); }
 
 .live-stream-grid, .live-admin-list { display: grid; gap: 18px; }

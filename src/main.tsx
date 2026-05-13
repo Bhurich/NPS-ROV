@@ -414,14 +414,15 @@ function BracketPage({ data }: { data: AppData }) {
 function BracketMatch({ data, match }: { data: AppData; match: Match }) {
   const teamA = data.teams.find((team) => team.id === match.teamAId);
   const teamB = data.teams.find((team) => team.id === match.teamBId);
+  const pendingLabel = match.round === "Round of 16" ? "รอประกาศทีม" : "รอผู้ชนะรอบก่อนหน้า";
   return (
     <article className={`bracket-match ${match.status.toLowerCase()}`}>
       <div className="bracket-match-head">
         <strong>M{match.matchNumber}</strong>
         <StatusBadge status={match.status} />
       </div>
-      <BracketTeam team={teamA} fallback="รอการจับสลาก" score={match.teamAScoreGames} winner={match.winnerTeamId === match.teamAId} />
-      <BracketTeam team={teamB} fallback="รอการจับสลาก" score={match.teamBScoreGames} winner={match.winnerTeamId === match.teamBId} />
+      <BracketTeam team={teamA} fallback={pendingLabel} score={match.teamAScoreGames} winner={match.winnerTeamId === match.teamAId} />
+      <BracketTeam team={teamB} fallback={pendingLabel} score={match.teamBScoreGames} winner={match.winnerTeamId === match.teamBId} />
       {match.winnerTeamId && <div className="advance-line">เข้ารอบ: <strong>{teamName(data, match.winnerTeamId)}</strong></div>}
     </article>
   );
@@ -1043,7 +1044,8 @@ function StatusBadge({ status }: { status: MatchStatus }) {
 }
 
 function StatusPill({ text }: { text: string }) {
-  return <span className={`team-status ${text === "Champion" ? "champion" : ""}`}>{text}</span>;
+  const className = text === "Champion" ? "champion" : text === "เข้ารอบ" ? "qualified" : text === "ตกรอบ" ? "eliminated" : "";
+  return <span className={`team-status ${className}`}>{text}</span>;
 }
 
 function PublicFooter() {
