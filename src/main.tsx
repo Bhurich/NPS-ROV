@@ -53,6 +53,7 @@ type NavItem = { href: string; label: string; icon: React.ReactNode; admin?: boo
 const publicNav: NavItem[] = [
   { href: "/", label: "Dashboard", icon: <Activity size={18} /> },
   { href: "/live", label: "Live", icon: <Video size={18} /> },
+  { href: "/bracket", label: "Bracket", icon: <Swords size={18} /> },
   { href: "/schedule", label: "Schedule", icon: <CalendarDays size={18} /> },
   { href: "/scoreboard", label: "Scoreboard", icon: <Zap size={18} /> },
   { href: "/teams", label: "Teams", icon: <Users size={18} /> },
@@ -147,7 +148,7 @@ function App() {
   } else {
     page = (
       <>
-        {path === "/bracket" && <SchedulePage data={data} />}
+        {path === "/bracket" && <BracketPage data={data} />}
         {path === "/live" && <LivePage data={data} />}
         {path === "/schedule" && <SchedulePage data={data} />}
         {path === "/scoreboard" && <ScoreboardPage data={data} />}
@@ -352,6 +353,70 @@ function LiveTeamCard({ team, fallback }: { team?: Team; fallback: string }) {
       <strong>{team?.name ?? "รอการจับสลาก"}</strong>
       <span>{team?.members?.length ? `${team.members.length} Players` : fallback}</span>
     </article>
+  );
+}
+
+function BracketPage({ data }: { data: AppData }) {
+  const rounds = ["Round of 16", "Quarter Final", "Semi Final", "Final"] as const;
+  const champion = data.teams.find((team) => team.id === data.tournament.championTeamId);
+
+  return (
+    <PageFrame eyebrow="PUBLIC VIEW" title="Playoff Bracket" subtitle="สายการแข่งขันและสถานะการเข้ารอบ อัปเดตตามผลที่ Admin บันทึก">
+      <div className="bracket-board">
+        {rounds.map((round) => {
+          const matches = data.matches.filter((match) => match.round === round).sort((a, b) => a.matchNumber - b.matchNumber);
+          return (
+            <section className="bracket-round" key={round}>
+              <h2>{round}</h2>
+              <div className="bracket-stack">
+                {matches.map((match) => <BracketMatch key={match.id} data={data} match={match} />)}
+              </div>
+            </section>
+          );
+        })}
+        <section className="bracket-round champion-column">
+          <h2>Champion</h2>
+          <div className="bracket-champion">
+            <Crown size={38} />
+            <span>CHAMPION</span>
+            {champion ? (
+              <>
+                <img src={champion.logoUrl} alt={champion.name} />
+                <strong>{champion.name}</strong>
+              </>
+            ) : (
+              <strong>รอผลรอบ Final</strong>
+            )}
+          </div>
+        </section>
+      </div>
+    </PageFrame>
+  );
+}
+
+function BracketMatch({ data, match }: { data: AppData; match: Match }) {
+  const teamA = data.teams.find((team) => team.id === match.teamAId);
+  const teamB = data.teams.find((team) => team.id === match.teamBId);
+  return (
+    <article className={`bracket-match ${match.status.toLowerCase()}`}>
+      <div className="bracket-match-head">
+        <strong>M{match.matchNumber}</strong>
+        <StatusBadge status={match.status} />
+      </div>
+      <BracketTeam team={teamA} fallback="รอการจับสลาก" score={match.teamAScoreGames} winner={match.winnerTeamId === match.teamAId} />
+      <BracketTeam team={teamB} fallback="รอการจับสลาก" score={match.teamBScoreGames} winner={match.winnerTeamId === match.teamBId} />
+      {match.winnerTeamId && <div className="advance-line">เข้ารอบ: <strong>{teamName(data, match.winnerTeamId)}</strong></div>}
+    </article>
+  );
+}
+
+function BracketTeam({ team, fallback, score, winner }: { team?: Team; fallback: string; score: number; winner: boolean }) {
+  return (
+    <div className={`bracket-team ${winner ? "winner" : ""}`}>
+      <span>{team?.seedNumber ?? "-"}</span>
+      <strong>{team?.name ?? fallback}</strong>
+      <em>{score}</em>
+    </div>
   );
 }
 
