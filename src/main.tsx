@@ -665,21 +665,25 @@ function AdminDashboard({ data, go }: { data: AppData; go: (href: string) => voi
 
 function AdminLive({ data, commit }: { data: AppData; commit: (data: AppData) => void }) {
   const [streams, setStreams] = useState<LiveStream[]>(getLiveStreams(data));
+  const [isDirty, setIsDirty] = useState(false);
 
   useEffect(() => {
-    setStreams(getLiveStreams(data));
-  }, [data.liveStream, data.liveStreams]);
+    if (!isDirty) setStreams(getLiveStreams(data));
+  }, [data.liveStream, data.liveStreams, isDirty]);
 
   const persist = (items: LiveStream[]) => {
+    setIsDirty(false);
     commit({ ...data, liveStream: items[0] ?? data.liveStream, liveStreams: items });
   };
 
   const updateStream = (id: string, patch: Partial<LiveStream>) => {
+    setIsDirty(true);
     setStreams((items) => items.map((item) => item.id === id ? { ...item, ...patch } : item));
   };
 
   const addStream = () => {
     const nextIndex = streams.length + 1;
+    setIsDirty(true);
     setStreams((items) => [
       ...items,
       {
@@ -694,6 +698,7 @@ function AdminLive({ data, commit }: { data: AppData; commit: (data: AppData) =>
   };
 
   const removeStream = (id: string) => {
+    setIsDirty(true);
     setStreams((items) => items.length <= 1 ? items : items.filter((item) => item.id !== id));
   };
 
@@ -705,6 +710,7 @@ function AdminLive({ data, commit }: { data: AppData; commit: (data: AppData) =>
     }
     const next = updateMatch(data, selectedMatch.id, { status: "Live" });
     const nextStreams = streams.map((item) => item.id === stream.id ? { ...item, isLive: true, matchId: selectedMatch.id } : item);
+    setIsDirty(false);
     commit({ ...next, liveStream: nextStreams[0] ?? data.liveStream, liveStreams: nextStreams });
   };
 
@@ -714,6 +720,7 @@ function AdminLive({ data, commit }: { data: AppData; commit: (data: AppData) =>
         <button className="secondary-btn" onClick={addStream}><Video size={17} /> Add Live Match</button>
         <button className="primary-btn" onClick={() => persist(streams)}><Save size={17} /> Save All Live Links</button>
         <a className="ghost-btn" href="/live" target="_blank" rel="noreferrer"><ExternalLink size={17} /> Preview Live Page</a>
+        <span className={`notice mini ${isDirty ? "unsaved" : ""}`}>{isDirty ? "มีรายการ Live ที่ยังไม่บันทึก" : "ข้อมูล Live พร้อมใช้งาน"}</span>
       </div>
       <section className="live-admin-list">
         {streams.map((stream, index) => (
