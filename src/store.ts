@@ -63,6 +63,7 @@ export type DrawCard = {
 };
 
 export type LiveStream = {
+  id: string;
   matchId: string;
   streamUrl: string;
   streamLabel: string;
@@ -76,6 +77,7 @@ export type AppData = {
   matches: Match[];
   drawCards: DrawCard[];
   liveStream: LiveStream;
+  liveStreams: LiveStream[];
 };
 
 const STORAGE_KEY = "nps-tournament-playoff-dashboard:v2";
@@ -136,6 +138,7 @@ const memberAliases: Record<string, string> = {
 };
 
 const defaultLiveStream = (): LiveStream => ({
+  id: "live-1",
   matchId: "match-1",
   streamUrl: "",
   streamLabel: "Microsoft Teams",
@@ -177,7 +180,8 @@ export function createSeedData(): AppData {
     teams,
     matches: createEmptyBracket(),
     drawCards: createDrawCards(),
-    liveStream: defaultLiveStream()
+    liveStream: defaultLiveStream(),
+    liveStreams: [defaultLiveStream()]
   };
 }
 
@@ -244,7 +248,8 @@ export function loadData(): AppData {
       teams: normalizeTeams(parsed.teams ?? []),
       matches: parsed.matches?.length ? parsed.matches : createEmptyBracket(),
       drawCards: parsed.drawCards?.length ? parsed.drawCards : createDrawCards(),
-      liveStream: normalizeLiveStream(parsed.liveStream)
+      liveStream: normalizeLiveStream(parsed.liveStream),
+      liveStreams: normalizeLiveStreams(parsed.liveStreams, parsed.liveStream)
     };
   } catch {
     const seed = createSeedData();
@@ -276,7 +281,8 @@ function normalizeData(data: AppData): AppData {
     teams: normalizeTeams(data.teams ?? []),
     matches: data.matches?.length ? data.matches : createEmptyBracket(),
     drawCards: data.drawCards?.length ? data.drawCards : createDrawCards(),
-    liveStream: normalizeLiveStream(data.liveStream)
+    liveStream: normalizeLiveStream(data.liveStream),
+    liveStreams: normalizeLiveStreams(data.liveStreams, data.liveStream)
   };
 }
 
@@ -291,11 +297,19 @@ function normalizeLiveStream(liveStream?: Partial<LiveStream>): LiveStream {
   return {
     ...defaultLiveStream(),
     ...(liveStream ?? {}),
+    id: liveStream?.id || defaultLiveStream().id,
     streamUrl: liveStream?.streamUrl ?? "",
     streamLabel: liveStream?.streamLabel || "Microsoft Teams",
     note: liveStream?.note || defaultLiveStream().note,
     isLive: Boolean(liveStream?.isLive)
   };
+}
+
+function normalizeLiveStreams(liveStreams?: Partial<LiveStream>[], liveStream?: Partial<LiveStream>): LiveStream[] {
+  if (Array.isArray(liveStreams) && liveStreams.length) {
+    return liveStreams.map((item, index) => normalizeLiveStream({ ...item, id: item.id || `live-${index + 1}` }));
+  }
+  return [normalizeLiveStream(liveStream)];
 }
 
 export async function saveSharedData(data: AppData): Promise<AppData> {

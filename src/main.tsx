@@ -27,6 +27,7 @@ import {
 import {
   ADMIN_PASSWORD,
   AppData,
+  LiveStream,
   Match,
   MatchStatus,
   Team,
@@ -301,48 +302,63 @@ function NextSchedule({ data }: { data: AppData }) {
   );
 }
 
-function getLiveDisplayMatch(data: AppData) {
-  return data.matches.find((match) => match.id === data.liveStream.matchId)
+function getLiveStreams(data: AppData) {
+  return data.liveStreams?.length ? data.liveStreams : [data.liveStream];
+}
+
+function getLiveDisplayMatch(data: AppData, stream: LiveStream) {
+  return data.matches.find((match) => match.id === stream.matchId)
     ?? data.matches.find((match) => match.status === "Live")
     ?? data.matches.find((match) => match.status === "Waiting")
     ?? data.matches[0];
 }
 
 function LivePage({ data }: { data: AppData }) {
-  const match = getLiveDisplayMatch(data);
-  const teamA = data.teams.find((team) => team.id === match?.teamAId);
-  const teamB = data.teams.find((team) => team.id === match?.teamBId);
-  const canWatch = Boolean(data.liveStream.streamUrl);
+  const streams = getLiveStreams(data);
+  const visibleStreams = streams.filter((stream) => stream.isLive || stream.streamUrl || stream.note).length ? streams.filter((stream) => stream.isLive || stream.streamUrl || stream.note) : streams;
 
   return (
-    <PageFrame eyebrow="PUBLIC VIEW" title="Live Match" subtitle="หน้ารวมลิงก์ถ่ายทอดสดและคู่ที่กำลังแข่งขัน">
-      <section className={`live-watch-panel ${data.liveStream.isLive ? "is-live" : ""}`}>
-        <div className="live-watch-copy">
-          <span className="live-kicker">{data.liveStream.isLive ? "LIVE NOW" : "STREAM LINK"}</span>
-          <h2>{match ? `M${match.matchNumber}: ${teamName(data, match.teamAId)} vs ${teamName(data, match.teamBId)}` : "รอประกาศคู่ถ่ายทอดสด"}</h2>
-          <p>{data.liveStream.note || "Admin จะประกาศลิงก์ถ่ายทอดสดก่อนเริ่มแข่งขัน"}</p>
-          <div className="live-meta-grid">
-            <div><small>วันที่</small><strong>{match?.matchDate ? formatDate(match.matchDate) : "รอกำหนด"}</strong></div>
-            <div><small>เวลา</small><strong>{match?.matchTime || "-"}</strong></div>
-            <div><small>ช่องทาง</small><strong>{data.liveStream.streamLabel || "Microsoft Teams"}</strong></div>
-            <div><small>สถานะ</small><strong>{match ? match.status : "-"}</strong></div>
-          </div>
-          {canWatch ? (
-            <a className="primary-btn live-link" href={data.liveStream.streamUrl} target="_blank" rel="noreferrer">
-              <ExternalLink size={18} /> เข้าชมถ่ายทอดสด
-            </a>
-          ) : (
-            <div className="notice">ยังไม่ได้ใส่ลิงก์ถ่ายทอดสด กรุณารอประกาศจาก Admin</div>
-          )}
-        </div>
-
-        <div className="live-versus-card">
-          <LiveTeamCard team={teamA} fallback="Team A" />
-          <span className="versus big">VS</span>
-          <LiveTeamCard team={teamB} fallback="Team B" />
-        </div>
-      </section>
+    <PageFrame eyebrow="PUBLIC VIEW" title="Live Matches" subtitle="รวมลิงก์ถ่ายทอดสดทุกคู่ที่กำลังแข่งขัน สามารถมีหลาย Match พร้อมกันได้">
+      <div className="live-stream-grid">
+        {visibleStreams.map((stream, index) => <LiveStreamCard key={stream.id || index} data={data} stream={stream} />)}
+      </div>
     </PageFrame>
+  );
+}
+
+function LiveStreamCard({ data, stream }: { data: AppData; stream: LiveStream }) {
+  const match = getLiveDisplayMatch(data, stream);
+  const teamA = data.teams.find((team) => team.id === match?.teamAId);
+  const teamB = data.teams.find((team) => team.id === match?.teamBId);
+  const canWatch = Boolean(stream.streamUrl);
+
+  return (
+    <section className={`live-watch-panel ${stream.isLive ? "is-live" : ""}`}>
+      <div className="live-watch-copy">
+        <span className="live-kicker">{stream.isLive ? "LIVE NOW" : "STREAM LINK"}</span>
+        <h2>{match ? `M${match.matchNumber}: ${teamName(data, match.teamAId)} vs ${teamName(data, match.teamBId)}` : "รอประกาศคู่ถ่ายทอดสด"}</h2>
+        <p>{stream.note || "Admin จะประกาศลิงก์ถ่ายทอดสดก่อนเริ่มแข่งขัน"}</p>
+        <div className="live-meta-grid">
+          <div><small>วันที่</small><strong>{match?.matchDate ? formatDate(match.matchDate) : "รอกำหนด"}</strong></div>
+          <div><small>เวลา</small><strong>{match?.matchTime || "-"}</strong></div>
+          <div><small>ช่องทาง</small><strong>{stream.streamLabel || "Microsoft Teams"}</strong></div>
+          <div><small>สถานะ</small><strong>{match ? match.status : "-"}</strong></div>
+        </div>
+        {canWatch ? (
+          <a className="primary-btn live-link" href={stream.streamUrl} target="_blank" rel="noreferrer">
+            <ExternalLink size={18} /> เข้าชมถ่ายทอดสด
+          </a>
+        ) : (
+          <div className="notice">ยังไม่ได้ใส่ลิงก์ถ่ายทอดสด กรุณารอประกาศจาก Admin</div>
+        )}
+      </div>
+
+      <div className="live-versus-card">
+        <LiveTeamCard team={teamA} fallback="Team A" />
+        <span className="versus big">VS</span>
+        <LiveTeamCard team={teamB} fallback="Team B" />
+      </div>
+    </section>
   );
 }
 
@@ -648,61 +664,93 @@ function AdminDashboard({ data, go }: { data: AppData; go: (href: string) => voi
 }
 
 function AdminLive({ data, commit }: { data: AppData; commit: (data: AppData) => void }) {
-  const [form, setForm] = useState(data.liveStream);
-  const selectedMatch = data.matches.find((match) => match.id === form.matchId) ?? data.matches[0];
+  const [streams, setStreams] = useState<LiveStream[]>(getLiveStreams(data));
 
   useEffect(() => {
-    setForm(data.liveStream);
-  }, [data.liveStream]);
+    setStreams(getLiveStreams(data));
+  }, [data.liveStream, data.liveStreams]);
 
-  const save = () => {
-    commit({ ...data, liveStream: form });
+  const persist = (items: LiveStream[]) => {
+    commit({ ...data, liveStream: items[0] ?? data.liveStream, liveStreams: items });
   };
 
-  const markMatchLive = () => {
+  const updateStream = (id: string, patch: Partial<LiveStream>) => {
+    setStreams((items) => items.map((item) => item.id === id ? { ...item, ...patch } : item));
+  };
+
+  const addStream = () => {
+    const nextIndex = streams.length + 1;
+    setStreams((items) => [
+      ...items,
+      {
+        id: `live-${Date.now()}`,
+        matchId: data.matches[0]?.id ?? "match-1",
+        streamUrl: "",
+        streamLabel: `Microsoft Teams ${nextIndex}`,
+        note: "กดปุ่มด้านล่างเพื่อเข้าชมถ่ายทอดสดผ่าน Microsoft Teams",
+        isLive: true
+      }
+    ]);
+  };
+
+  const removeStream = (id: string) => {
+    setStreams((items) => items.length <= 1 ? items : items.filter((item) => item.id !== id));
+  };
+
+  const markMatchLive = (stream: LiveStream) => {
+    const selectedMatch = data.matches.find((match) => match.id === stream.matchId);
     if (!selectedMatch) {
-      commit({ ...data, liveStream: form });
+      persist(streams);
       return;
     }
     const next = updateMatch(data, selectedMatch.id, { status: "Live" });
-    commit({ ...next, liveStream: { ...form, isLive: true, matchId: selectedMatch.id } });
+    const nextStreams = streams.map((item) => item.id === stream.id ? { ...item, isLive: true, matchId: selectedMatch.id } : item);
+    commit({ ...next, liveStream: nextStreams[0] ?? data.liveStream, liveStreams: nextStreams });
   };
 
   return (
-    <PageFrame eyebrow="ADMIN" title="Live Stream Management" subtitle="เลือกคู่ที่กำลังแข่ง ใส่ลิงก์ MS Teams หรือช่องทางถ่ายทอดสด และประกาศให้ผู้ชมกดเข้าไปดู">
-      <section className="panel live-admin-panel">
-        <PanelTitle icon={<Video size={19} />} title="Live Link Setup" />
-        <div className="form-grid two">
-          <label>คู่ที่ถ่ายทอดสด
-            <select value={form.matchId} onChange={(event) => setForm({ ...form, matchId: event.target.value })}>
-              {data.matches.map((match) => (
-                <option key={match.id} value={match.id}>M{match.matchNumber} · {teamName(data, match.teamAId)} vs {teamName(data, match.teamBId)}</option>
-              ))}
-            </select>
-          </label>
-          <label>สถานะหน้า Live
-            <select value={form.isLive ? "live" : "waiting"} onChange={(event) => setForm({ ...form, isLive: event.target.value === "live" })}>
-              <option value="waiting">รอถ่ายทอดสด</option>
-              <option value="live">กำลังถ่ายทอดสด</option>
-            </select>
-          </label>
-          <label>ชื่อช่องทาง
-            <input value={form.streamLabel} onChange={(event) => setForm({ ...form, streamLabel: event.target.value })} placeholder="Microsoft Teams" />
-          </label>
-          <label>ลิงก์ถ่ายทอดสด
-            <input value={form.streamUrl} onChange={(event) => setForm({ ...form, streamUrl: event.target.value })} placeholder="วางลิงก์ MS Teams meeting / live link" />
-          </label>
-        </div>
-        <label>ข้อความแจ้งผู้ชม
-          <textarea value={form.note} onChange={(event) => setForm({ ...form, note: event.target.value })} placeholder="เช่น กดปุ่มเพื่อรับชมผ่าน Microsoft Teams" />
-        </label>
-        <div className="admin-actions">
-          <button className="primary-btn" onClick={save}><Save size={17} /> Save Live Link</button>
-          <button className="secondary-btn" onClick={markMatchLive}><Play size={17} /> Save & Mark Match Live</button>
-          <a className="ghost-btn" href="/live" target="_blank" rel="noreferrer"><ExternalLink size={17} /> Preview Live Page</a>
-        </div>
+    <PageFrame eyebrow="ADMIN" title="Live Stream Management" subtitle="เพิ่ม Match ที่ Live ได้หลายคู่พร้อมกัน ใส่ลิงก์ MS Teams แยกตามแต่ละคู่ แล้วประกาศให้ผู้ชมเลือกดูเอง">
+      <div className="admin-actions">
+        <button className="secondary-btn" onClick={addStream}><Video size={17} /> Add Live Match</button>
+        <button className="primary-btn" onClick={() => persist(streams)}><Save size={17} /> Save All Live Links</button>
+        <a className="ghost-btn" href="/live" target="_blank" rel="noreferrer"><ExternalLink size={17} /> Preview Live Page</a>
+      </div>
+      <section className="live-admin-list">
+        {streams.map((stream, index) => (
+          <article className="panel live-admin-panel" key={stream.id}>
+            <PanelTitle icon={<Video size={19} />} title={`Live Match ${index + 1}`} />
+            <div className="form-grid two">
+              <label>คู่ที่ถ่ายทอดสด
+                <select value={stream.matchId} onChange={(event) => updateStream(stream.id, { matchId: event.target.value })}>
+                  {data.matches.map((match) => (
+                    <option key={match.id} value={match.id}>M{match.matchNumber} · {teamName(data, match.teamAId)} vs {teamName(data, match.teamBId)}</option>
+                  ))}
+                </select>
+              </label>
+              <label>สถานะหน้า Live
+                <select value={stream.isLive ? "live" : "waiting"} onChange={(event) => updateStream(stream.id, { isLive: event.target.value === "live" })}>
+                  <option value="waiting">รอถ่ายทอดสด</option>
+                  <option value="live">กำลังถ่ายทอดสด</option>
+                </select>
+              </label>
+              <label>ชื่อช่องทาง
+                <input value={stream.streamLabel} onChange={(event) => updateStream(stream.id, { streamLabel: event.target.value })} placeholder="Microsoft Teams ห้อง 1" />
+              </label>
+              <label>ลิงก์ถ่ายทอดสด
+                <input value={stream.streamUrl} onChange={(event) => updateStream(stream.id, { streamUrl: event.target.value })} placeholder="วางลิงก์ MS Teams meeting / live link" />
+              </label>
+            </div>
+            <label>ข้อความแจ้งผู้ชม
+              <textarea value={stream.note} onChange={(event) => updateStream(stream.id, { note: event.target.value })} placeholder="เช่น กดปุ่มเพื่อรับชมผ่าน Microsoft Teams" />
+            </label>
+            <div className="admin-actions">
+              <button className="secondary-btn" onClick={() => markMatchLive(stream)}><Play size={17} /> Mark This Match Live</button>
+              <button className="ghost-btn danger" onClick={() => removeStream(stream.id)} disabled={streams.length <= 1}>Remove</button>
+            </div>
+          </article>
+        ))}
       </section>
-      <LivePage data={{ ...data, liveStream: form }} />
+      <LivePage data={{ ...data, liveStream: streams[0] ?? data.liveStream, liveStreams: streams }} />
     </PageFrame>
   );
 }
