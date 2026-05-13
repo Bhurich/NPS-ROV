@@ -7,6 +7,7 @@ import {
   Crown,
   Download,
   Edit3,
+  ExternalLink,
   Lock,
   LogOut,
   Medal,
@@ -20,6 +21,7 @@ import {
   Trophy,
   Unlock,
   Users,
+  Video,
   Zap
 } from "lucide-react";
 import {
@@ -28,7 +30,6 @@ import {
   Match,
   MatchStatus,
   Team,
-  buildBracketFromSeeds,
   createSeedData,
   exportScheduleCsv,
   isAuthed,
@@ -51,14 +52,16 @@ type NavItem = { href: string; label: string; icon: React.ReactNode; admin?: boo
 
 const publicNav: NavItem[] = [
   { href: "/", label: "Dashboard", icon: <Activity size={18} /> },
-  { href: "/bracket", label: "Bracket", icon: <Swords size={18} /> },
+  { href: "/live", label: "Live", icon: <Video size={18} /> },
   { href: "/schedule", label: "Schedule", icon: <CalendarDays size={18} /> },
   { href: "/scoreboard", label: "Scoreboard", icon: <Zap size={18} /> },
-  { href: "/teams", label: "Teams", icon: <Users size={18} /> }
+  { href: "/teams", label: "Teams", icon: <Users size={18} /> },
+  { href: "/rosters", label: "Rosters", icon: <Clipboard size={18} /> }
 ];
 
 const adminNav: NavItem[] = [
   { href: "/admin", label: "Admin", icon: <Shield size={18} />, admin: true },
+  { href: "/admin/live", label: "Live", icon: <Video size={18} />, admin: true },
   { href: "/admin/teams", label: "Teams", icon: <Users size={18} />, admin: true },
   { href: "/admin/draw", label: "Draw", icon: <Shuffle size={18} />, admin: true },
   { href: "/admin/matches", label: "Matches", icon: <Edit3 size={18} />, admin: true },
@@ -133,6 +136,7 @@ function App() {
     page = requireAuth(
       <>
         {path === "/admin/teams" && <AdminTeams data={data} commit={commit} />}
+        {path === "/admin/live" && <AdminLive data={data} commit={commit} />}
         {path === "/admin/draw" && <AdminDraw data={data} commit={commit} />}
         {path === "/admin/matches" && <AdminMatches data={data} commit={commit} />}
         {path === "/admin/scoreboard" && <AdminScoreboard data={data} commit={commit} />}
@@ -143,10 +147,12 @@ function App() {
   } else {
     page = (
       <>
-        {path === "/bracket" && <BracketPage data={data} />}
+        {path === "/bracket" && <SchedulePage data={data} />}
+        {path === "/live" && <LivePage data={data} />}
         {path === "/schedule" && <SchedulePage data={data} />}
         {path === "/scoreboard" && <ScoreboardPage data={data} />}
         {path === "/teams" && <TeamsPage data={data} />}
+        {path === "/rosters" && <RostersPage data={data} />}
         {path === "/" && <HomePage data={data} go={go} />}
       </>
     );
@@ -169,8 +175,8 @@ function TopNav({ path, go, auth, setAuth }: { path: string; go: (href: string) 
       <button className="brand" onClick={() => go("/")}>
         <span className="brand-mark"><Trophy size={22} /></span>
         <span>
-          <strong>NPS PLAYOFF</strong>
-          <small>Best of 3 Tournament</small>
+          <strong>NPS ROV 2026</strong>
+          <small>Match Center</small>
         </span>
       </button>
       <nav className="nav-scroll">
@@ -203,11 +209,12 @@ function Hero({ data, go }: { data: AppData; go: (href: string) => void }) {
   return (
     <section className="hero">
       <div className="hero-copy">
-        <span className="eyebrow">LIVE PLAYOFF COMMAND CENTER</span>
-        <h1>{data.tournament.name}</h1>
-        <p>แดชบอร์ดการแข่งขัน 16 ทีมแบบ Best of 3 พร้อม bracket, schedule, scoreboard และสถานะการแข่งขันสำหรับผู้ชมและผู้เข้าแข่งขัน</p>
+        <span className="eyebrow">LIVE MATCH CENTER</span>
+        <h1>NPS ROV 2026</h1>
+        <p>แดชบอร์ดสำหรับดูคู่แข่งขัน ตารางแข่ง คะแนนสด และรายชื่อทีม สำหรับผู้ชมและผู้เข้าแข่งขัน</p>
         <div className="hero-actions">
-          <button className="primary-btn" onClick={() => go("/bracket")}><Swords size={18} /> PLAYOFF</button>
+          <button className="primary-btn" onClick={() => go("/live")}><Video size={18} /> LIVE</button>
+          <button className="primary-btn" onClick={() => go("/schedule")}><CalendarDays size={18} /> SCHEDULE</button>
           <button className="secondary-btn" onClick={() => go("/scoreboard")}><Zap size={18} /> SCORE</button>
           <button className="ghost-btn" onClick={() => navigator.clipboard.writeText(publicLink())}><Clipboard size={18} /> Copy Public Link</button>
         </div>
@@ -283,7 +290,7 @@ function NextSchedule({ data }: { data: AppData }) {
   const matches = data.matches.filter((match) => match.round === "Round of 16");
   return (
     <section className="panel">
-      <PanelTitle icon={<CalendarDays size={19} />} title="Round of 16 Schedule" />
+      <PanelTitle icon={<CalendarDays size={19} />} title="ตารางคู่แข่งขัน" />
       <div className="list-stack">
         {matches.map((match) => (
           <ScheduleRow key={match.id} data={data} match={match} />
@@ -293,56 +300,58 @@ function NextSchedule({ data }: { data: AppData }) {
   );
 }
 
-function BracketPage({ data }: { data: AppData }) {
-  const rounds = ["Round of 16", "Quarter Final", "Semi Final", "Final"] as const;
+function getLiveDisplayMatch(data: AppData) {
+  return data.matches.find((match) => match.id === data.liveStream.matchId)
+    ?? data.matches.find((match) => match.status === "Live")
+    ?? data.matches.find((match) => match.status === "Waiting")
+    ?? data.matches[0];
+}
+
+function LivePage({ data }: { data: AppData }) {
+  const match = getLiveDisplayMatch(data);
+  const teamA = data.teams.find((team) => team.id === match?.teamAId);
+  const teamB = data.teams.find((team) => team.id === match?.teamBId);
+  const canWatch = Boolean(data.liveStream.streamUrl);
+
   return (
-    <PageFrame eyebrow="PUBLIC VIEW" title="Playoff Bracket" subtitle="สายการแข่งขันแบบ NBA Playoff พร้อมผล Best of 3 และการส่งทีมเข้ารอบอัตโนมัติ">
-      <div className="bracket-scroll">
-        <div className="bracket-grid">
-          {rounds.map((round) => (
-            <div className="round-column" key={round}>
-              <h2>{round}</h2>
-              <div className={`round-stack ${round.toLowerCase().replaceAll(" ", "-")}`}>
-                {data.matches.filter((match) => match.round === round).map((match) => <BracketMatch key={match.id} data={data} match={match} />)}
-              </div>
-            </div>
-          ))}
-          <div className="round-column champion-column">
-            <h2>Champion</h2>
-            <div className="final-champion">
-              <Crown size={34} />
-              <strong>{data.tournament.championTeamId ? teamName(data, data.tournament.championTeamId) : ""}</strong>
-              <span>CHAMPION</span>
-            </div>
+    <PageFrame eyebrow="PUBLIC VIEW" title="Live Match" subtitle="หน้ารวมลิงก์ถ่ายทอดสดและคู่ที่กำลังแข่งขัน">
+      <section className={`live-watch-panel ${data.liveStream.isLive ? "is-live" : ""}`}>
+        <div className="live-watch-copy">
+          <span className="live-kicker">{data.liveStream.isLive ? "LIVE NOW" : "STREAM LINK"}</span>
+          <h2>{match ? `M${match.matchNumber}: ${teamName(data, match.teamAId)} vs ${teamName(data, match.teamBId)}` : "รอประกาศคู่ถ่ายทอดสด"}</h2>
+          <p>{data.liveStream.note || "Admin จะประกาศลิงก์ถ่ายทอดสดก่อนเริ่มแข่งขัน"}</p>
+          <div className="live-meta-grid">
+            <div><small>วันที่</small><strong>{match?.matchDate ? formatDate(match.matchDate) : "รอกำหนด"}</strong></div>
+            <div><small>เวลา</small><strong>{match?.matchTime || "-"}</strong></div>
+            <div><small>ช่องทาง</small><strong>{data.liveStream.streamLabel || "Microsoft Teams"}</strong></div>
+            <div><small>สถานะ</small><strong>{match ? match.status : "-"}</strong></div>
           </div>
+          {canWatch ? (
+            <a className="primary-btn live-link" href={data.liveStream.streamUrl} target="_blank" rel="noreferrer">
+              <ExternalLink size={18} /> เข้าชมถ่ายทอดสด
+            </a>
+          ) : (
+            <div className="notice">ยังไม่ได้ใส่ลิงก์ถ่ายทอดสด กรุณารอประกาศจาก Admin</div>
+          )}
         </div>
-      </div>
+
+        <div className="live-versus-card">
+          <LiveTeamCard team={teamA} fallback="Team A" />
+          <span className="versus big">VS</span>
+          <LiveTeamCard team={teamB} fallback="Team B" />
+        </div>
+      </section>
     </PageFrame>
   );
 }
 
-function BracketMatch({ data, match }: { data: AppData; match: Match }) {
-  const teamA = data.teams.find((team) => team.id === match.teamAId);
-  const teamB = data.teams.find((team) => team.id === match.teamBId);
+function LiveTeamCard({ team, fallback }: { team?: Team; fallback: string }) {
   return (
-    <article className={`bracket-match ${match.status.toLowerCase()}`}>
-      <div className="match-meta">
-        <span>M{match.matchNumber}</span>
-        <StatusBadge status={match.status} />
-      </div>
-      <BracketTeam team={teamA} score={match.teamAScoreGames} winner={match.winnerTeamId === match.teamAId} />
-      <BracketTeam team={teamB} score={match.teamBScoreGames} winner={match.winnerTeamId === match.teamBId} />
-    </article>
-  );
-}
-
-function BracketTeam({ team, score, winner }: { team?: Team; score: number; winner: boolean }) {
-  return (
-    <div className={`bracket-team ${winner ? "winner" : ""}`}>
-      <span>{team?.seedNumber ?? "-"}</span>
+    <article>
+      <img src={team?.logoUrl || "https://api.dicebear.com/9.x/shapes/svg?seed=waiting"} alt={team?.name ?? fallback} />
       <strong>{team?.name ?? "รอการจับสลาก"}</strong>
-      <em>{score}</em>
-    </div>
+      <span>{team?.members?.length ? `${team.members.length} Players` : fallback}</span>
+    </article>
   );
 }
 
@@ -468,8 +477,37 @@ function TeamsPage({ data }: { data: AppData }) {
               <strong>{team.name}</strong>
               <span>{team.department}</span>
               <em>{pairingFor(team)}</em>
+              <em>{team.members?.length ?? 0} Players</em>
             </div>
             <StatusPill text={team.status} />
+          </article>
+        ))}
+      </div>
+    </PageFrame>
+  );
+}
+
+function RostersPage({ data }: { data: AppData }) {
+  return (
+    <PageFrame eyebrow="PUBLIC VIEW" title="Team Rosters" subtitle="รายชื่อสมาชิกของแต่ละทีม สำหรับให้ผู้ชมตรวจสอบก่อนและระหว่างการแข่งขัน">
+      <div className="roster-grid">
+        {[...data.teams].sort((a, b) => a.name.localeCompare(b.name, "th")).map((team) => (
+          <article className="roster-card" key={team.id}>
+            <div className="roster-head">
+              <img src={team.logoUrl} alt={team.name} />
+              <div>
+                <small>{team.department || "NPS Tournament"}</small>
+                <strong>{team.name}</strong>
+                <span>{team.members?.length ?? 0} Players</span>
+              </div>
+            </div>
+            {team.members?.length ? (
+              <ol className="member-list">
+                {team.members.map((member, index) => <li key={`${team.id}-${member}-${index}`}>{member}</li>)}
+              </ol>
+            ) : (
+              <div className="empty-state compact">ยังไม่มีรายชื่อสมาชิก</div>
+            )}
           </article>
         ))}
       </div>
@@ -513,7 +551,7 @@ function LoginPage({ go, setAuth }: { go: (href: string) => void; setAuth: (valu
       <form className="login-card" onSubmit={submit}>
         <span className="brand-mark large"><Shield size={30} /></span>
         <h1>Admin Login</h1>
-        <p>เข้าสู่ระบบจัดการแข่งขัน NPS Tournament Playoff Dashboard</p>
+        <p>เข้าสู่ระบบจัดการแข่งขัน NPS ROV 2026 Match Center</p>
         <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password / PIN" autoFocus />
         {error && <div className="error-text">{error}</div>}
         <button className="primary-btn" type="submit"><Lock size={17} /> Login</button>
@@ -544,6 +582,66 @@ function AdminDashboard({ data, go }: { data: AppData; go: (href: string) => voi
   );
 }
 
+function AdminLive({ data, commit }: { data: AppData; commit: (data: AppData) => void }) {
+  const [form, setForm] = useState(data.liveStream);
+  const selectedMatch = data.matches.find((match) => match.id === form.matchId) ?? data.matches[0];
+
+  useEffect(() => {
+    setForm(data.liveStream);
+  }, [data.liveStream]);
+
+  const save = () => {
+    commit({ ...data, liveStream: form });
+  };
+
+  const markMatchLive = () => {
+    if (!selectedMatch) {
+      commit({ ...data, liveStream: form });
+      return;
+    }
+    const next = updateMatch(data, selectedMatch.id, { status: "Live" });
+    commit({ ...next, liveStream: { ...form, isLive: true, matchId: selectedMatch.id } });
+  };
+
+  return (
+    <PageFrame eyebrow="ADMIN" title="Live Stream Management" subtitle="เลือกคู่ที่กำลังแข่ง ใส่ลิงก์ MS Teams หรือช่องทางถ่ายทอดสด และประกาศให้ผู้ชมกดเข้าไปดู">
+      <section className="panel live-admin-panel">
+        <PanelTitle icon={<Video size={19} />} title="Live Link Setup" />
+        <div className="form-grid two">
+          <label>คู่ที่ถ่ายทอดสด
+            <select value={form.matchId} onChange={(event) => setForm({ ...form, matchId: event.target.value })}>
+              {data.matches.map((match) => (
+                <option key={match.id} value={match.id}>M{match.matchNumber} · {teamName(data, match.teamAId)} vs {teamName(data, match.teamBId)}</option>
+              ))}
+            </select>
+          </label>
+          <label>สถานะหน้า Live
+            <select value={form.isLive ? "live" : "waiting"} onChange={(event) => setForm({ ...form, isLive: event.target.value === "live" })}>
+              <option value="waiting">รอถ่ายทอดสด</option>
+              <option value="live">กำลังถ่ายทอดสด</option>
+            </select>
+          </label>
+          <label>ชื่อช่องทาง
+            <input value={form.streamLabel} onChange={(event) => setForm({ ...form, streamLabel: event.target.value })} placeholder="Microsoft Teams" />
+          </label>
+          <label>ลิงก์ถ่ายทอดสด
+            <input value={form.streamUrl} onChange={(event) => setForm({ ...form, streamUrl: event.target.value })} placeholder="วางลิงก์ MS Teams meeting / live link" />
+          </label>
+        </div>
+        <label>ข้อความแจ้งผู้ชม
+          <textarea value={form.note} onChange={(event) => setForm({ ...form, note: event.target.value })} placeholder="เช่น กดปุ่มเพื่อรับชมผ่าน Microsoft Teams" />
+        </label>
+        <div className="admin-actions">
+          <button className="primary-btn" onClick={save}><Save size={17} /> Save Live Link</button>
+          <button className="secondary-btn" onClick={markMatchLive}><Play size={17} /> Save & Mark Match Live</button>
+          <a className="ghost-btn" href="/live" target="_blank" rel="noreferrer"><ExternalLink size={17} /> Preview Live Page</a>
+        </div>
+      </section>
+      <LivePage data={{ ...data, liveStream: form }} />
+    </PageFrame>
+  );
+}
+
 function AdminTeams({ data, commit }: { data: AppData; commit: (data: AppData) => void }) {
   const [teams, setTeams] = useState(data.teams);
   const [isDirty, setIsDirty] = useState(false);
@@ -568,6 +666,7 @@ function AdminTeams({ data, commit }: { data: AppData; commit: (data: AppData) =
         logoUrl: `https://api.dicebear.com/9.x/shapes/svg?seed=NPS-new-${index}&backgroundColor=111827,7f1d1d,134e4a&radius=12`,
         captainName: "",
         contact: "",
+        members: [],
         status: "ยังไม่แข่ง",
         createdAt: timestamp,
         updatedAt: timestamp
@@ -598,6 +697,7 @@ function AdminTeams({ data, commit }: { data: AppData; commit: (data: AppData) =
             <label>Logo / Avatar URL<input value={team.logoUrl} onChange={(event) => update(team.id, { logoUrl: event.target.value })} /></label>
             <label>Captain<input value={team.captainName} onChange={(event) => update(team.id, { captainName: event.target.value })} /></label>
             <label>Contact<input value={team.contact} onChange={(event) => update(team.id, { contact: event.target.value })} /></label>
+            <label>Members<textarea value={(team.members ?? []).join("\n")} onChange={(event) => update(team.id, { members: event.target.value.split("\n").map((item) => item.trim()).filter(Boolean) })} placeholder="ใส่รายชื่อสมาชิก 1 คนต่อ 1 บรรทัด" /></label>
             <button className="ghost-btn danger" onClick={() => deleteTeam(team.id)}>Delete Team</button>
           </article>
         ))}
@@ -615,7 +715,7 @@ function AdminDraw({ data, commit }: { data: AppData; commit: (data: AppData) =>
   const draw = () => {
     try {
       commit(startDraw(data));
-      setMessage("สุ่มและเปิดไพ่ครบ 16 ใบแล้ว สร้าง Bracket อัตโนมัติเรียบร้อย");
+      setMessage("สุ่มและเปิดไพ่ครบ 16 ใบแล้ว สร้างคู่แข่งขันอัตโนมัติเรียบร้อย");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "ไม่สามารถจับสลากได้");
     }
@@ -633,7 +733,7 @@ function AdminDraw({ data, commit }: { data: AppData; commit: (data: AppData) =>
     }
   };
   return (
-    <PageFrame eyebrow="ADMIN" title="Card Draw System" subtitle="หัวหน้าทีมเลือกเปิดไพ่ 16 ใบ ใต้ไพ่มีลำดับ seed แล้วระบบจับคู่เข้า Bracket อัตโนมัติ">
+    <PageFrame eyebrow="ADMIN" title="Card Draw System" subtitle="หัวหน้าทีมเลือกเปิดไพ่ 16 ใบ ใต้ไพ่มีลำดับ seed แล้วระบบจับคู่แข่งขันอัตโนมัติ">
       <div className="admin-actions">
         <select value={selectedTeamId} onChange={(event) => setSelectedTeamId(event.target.value)} disabled={data.tournament.isDrawLocked || availableTeams.length === 0}>
           <option value="">เลือกทีมที่จะเปิดไพ่</option>
@@ -641,7 +741,6 @@ function AdminDraw({ data, commit }: { data: AppData; commit: (data: AppData) =>
         </select>
         <button className="primary-btn" onClick={draw} disabled={data.tournament.isDrawLocked}><Shuffle size={17} /> Auto Draw All</button>
         <button className="secondary-btn" onClick={() => commit(resetDraw(data))} disabled={data.tournament.isDrawLocked}><RefreshCw size={17} /> Reset Draw</button>
-        <button className="secondary-btn" onClick={() => commit(buildBracketFromSeeds(data))} disabled={data.tournament.isDrawLocked || revealedCount < 16}><Swords size={17} /> Build Bracket</button>
         <button className="ghost-btn" onClick={() => commit({ ...data, tournament: { ...data.tournament, isDrawLocked: !data.tournament.isDrawLocked } })}>
           {data.tournament.isDrawLocked ? <Unlock size={17} /> : <Lock size={17} />}
           {data.tournament.isDrawLocked ? "Unlock Draw" : "Lock Draw"}
@@ -669,7 +768,6 @@ function AdminDraw({ data, commit }: { data: AppData; commit: (data: AppData) =>
           );
         })}
       </div>
-      <BracketPage data={data} />
     </PageFrame>
   );
 }
@@ -786,7 +884,7 @@ function AdminSettings({ data, commit }: { data: AppData; commit: (data: AppData
       <section className="panel">
         <PanelTitle icon={<Clipboard size={19} />} title="Public Link" />
         <div className="public-link">{publicLink()}</div>
-        <div className="notice">ลิงก์ Public นี้เปิดดูหน้า Dashboard, Bracket, Schedule, Scoreboard และ Teams ได้โดยไม่ต้อง Login ส่วนการแก้ไขยังถูกล็อกไว้เฉพาะ Admin</div>
+        <div className="notice">ลิงก์ Public นี้เปิดดูหน้า Dashboard, Schedule, Scoreboard และ Teams ได้โดยไม่ต้อง Login ส่วนการแก้ไขยังถูกล็อกไว้เฉพาะ Admin</div>
         <div className="admin-actions">
           <button className="primary-btn" onClick={copyPublic}><Clipboard size={17} /> Copy Public Link</button>
           <button className="secondary-btn" onClick={downloadCsv}><Download size={17} /> Export CSV</button>
@@ -828,7 +926,7 @@ function StatusPill({ text }: { text: string }) {
 }
 
 function PublicFooter() {
-  return <footer className="footer">Public view · Read only · Auto refresh enabled · NPS Tournament Playoff Dashboard</footer>;
+  return <footer className="footer">Public view · Read only · Auto refresh enabled · NPS ROV 2026 Match Center</footer>;
 }
 
 function formatDate(value: string) {

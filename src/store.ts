@@ -10,6 +10,7 @@ export type Team = {
   logoUrl: string;
   captainName: string;
   contact: string;
+  members: string[];
   seedNumber?: number;
   status: TeamStatus;
   createdAt: string;
@@ -61,11 +62,20 @@ export type DrawCard = {
   isRevealed: boolean;
 };
 
+export type LiveStream = {
+  matchId: string;
+  streamUrl: string;
+  streamLabel: string;
+  note: string;
+  isLive: boolean;
+};
+
 export type AppData = {
   tournament: Tournament;
   teams: Team[];
   matches: Match[];
   drawCards: DrawCard[];
+  liveStream: LiveStream;
 };
 
 const STORAGE_KEY = "nps-tournament-playoff-dashboard:v2";
@@ -78,23 +88,64 @@ const avatarFor = (index: number) =>
   `https://api.dicebear.com/9.x/shapes/svg?seed=NPS-${index}&backgroundColor=111827,1e1b4b,7f1d1d&radius=12`;
 
 const seedTeamNames = [
-  "ไทยเบียร์สิงห์888",
+  "ท้ายเบียร์สิงห์888",
   "จิตวิทยาพิชิต",
   "power จักรกาลหนัก",
-  "ว้าว Purchase",
+  "ท้าย Purchase",
   "อาวารีเทพยาดา",
   "PP eleven",
   "อีตาที่ชอบนะ",
-  "ข้าซางอยู่ไหน",
-  "จงครำาV3",
+  "ขาช้างกูอยู่ไหน",
+  "จิ้กจกจ๊าV3",
   "สายโหดโหมดลุย",
   "โหนกระสือ",
-  "เล่นทั้งวันความเท่าเดิม",
+  "เล่นทั้งวันดาวเท่าเดิม",
   "Project Dep",
-  "#พาย10%",
+  "#ท้าย10%",
   "SafeTo",
-  "เล่นเก่งตอนบ้านแข่ง"
+  "เล่นเก่งตอนไม่แข่ง"
 ];
+
+const teamMembersByName: Record<string, string[]> = {
+  "อย่าทำข้อยนะ": ["กิตติกร พาถาวร", "สัญญา นุนารัมย์", "ปัณณวิชญ์ อินทรศักดิ์", "สิปปกร แข็งฤทธิ์", "กฤตนัย วิหกหงษ์"],
+  "power จักรกาลหนัก": ["นายเทพนฤทธิ์ แจ่มแจ้ง", "นายวีรชัย สุวรรณโค", "นายสราวุธ เจริญดี", "นายชาญณรงค์ ชัยปัญหา", "นายวีรภัทร คงคา"],
+  "เล่นทั้งวันดาวเท่าเดิม": ["สืบวงศ์ สนั่นวงศ์", "วันชนะ ตันเตโช", "นิวตรอน ทัศนชัยสิทธิ์", "ยศวริศ ธีรอทธิพัฒน์", "กิตติภพ เวทอุดม"],
+  "โหนกระสือ": ["พงศกร ไพฑูรย์", "พิทักษิณ ศิลศร", "ปรีชา กองภาว์", "ณัฐวุฒิ เอี่ยมสอาด", "ปฎิพัทธ์ คำมี"],
+  "ท้าย Purchase": ["กริชษฏาพณ ชูพินิจ", "ภาสกรณ์ ชำนาญหล่อ", "ธนัญญา ภูผา", "พรพรหม วัฒนสุขนนท์", "ธีรภัทร์ เดชไธสง"],
+  "หนูสู่รูงู งูสุดสู้หนูสู้งู": ["นันทิพัฒน์ ภู่สงค์", "พิเชษฐ ทานศิลา", "ชุติพนธ์ สงวนสุข", "รัฐศาสตร์ เกียรติเจริญสุข", "ทักษิณ ตั้งบรรจงกิต"],
+  "#ท้าย10%": ["พิศุทธิ์ อุดม", "เจียรไนย ทิพย์ประจา", "อมลณัฐ สั่งแสวง", "พงศกร องอาจศักดิ์ศรี", "ภานุพงษ์ สรรพนุเคราะห์", "พัชระ แซวประโคน"],
+  "จิ้กจกจ๊าV3": ["สถาพร จารัตน์", "สมศักดิ์ กงแก้ว", "กัมปนาท มาลี", "วุฒินันท์ หอมหวน", "ประดิพัทธ์ พรมนำ"],
+  "เล่นเก่งตอนไม่แข่ง": ["ชานน กิจบรรณเดช", "อภิวัฒน์ โกษา", "เจษฎาภรณ์ เปี้ยสุยะ", "วรวิช ฐิติวรชิน", "วสันต์ บุตรราช"],
+  "PP eleven": ["วิษณุ สงวนวงษ์", "บูรพา เชิดชู", "กิตติภูมิ เยื่อใย", "ธนเกียรติ กระแสโสม", "อภิสิทธิ์ ลาเจริญ"],
+  "SafeTo": ["ธันวา ประสานศักดิ์", "สิริวุฒิ คำเพรช", "นัฐพงษ์ เฉลยพจน์", "ทัดชา ติธรรมมา", "นันทภพ ยาสิงห์ทอง"],
+  "ท้ายเบียร์สิงห์888": ["อาทิตย์ โคตร์เพ็ชร", "ณัฐการณ์ ดอนกลอย", "อัครพล ตันโห", "ชยพัทธ์ บุตรดีวงค์", "นนทกานต์ อ่อนชวด"],
+  "สิงห์สั่งลุย": ["นายธนดล พูนเพิ่มผลสิริ", "นายกิติคุณ ปัทมแก้ว", "นางสาวพัชรา เว้บ้านแพ้ว", "นายนิติกันต์ จันทร์คงหอม", "นายพิชญา บวรสกุลโชค", "นางสาวพันเอมอร แรมพิมาย"],
+  "ความลับทางราชกาล": ["ณัฐฐินันท์ ทองพิมพ์", "ปฏิวัติ ศรีสุภา", "อัชฌา เทพผล", "ภูริพัฒน์ ผามัง", "ธรรมพล พิมมะสาร"],
+  "สายโหดโหมดลุย": ["เอกรินทร์ อิ่นอ้าย", "ทัศนัย คุดทุ่ง", "วิทวัส บุญมี", "อาคม ศรีนารอด", "วีระเดข สุวรรณโค"],
+  "ขาช้างกูอยู่ไหน": ["โชคชัย น้อยบุตร", "สุริยนต์ ขันทะ", "ภานุพงษ์ จอมทอง", "จิรภัทร สุขเณร", "เนรมิตร เป่าตัว"]
+};
+
+const memberAliases: Record<string, string> = {
+  "ไทยเบียร์สิงห์888": "ท้ายเบียร์สิงห์888",
+  "ว้าว Purchase": "ท้าย Purchase",
+  "ข้าซางอยู่ไหน": "ขาช้างกูอยู่ไหน",
+  "จงครำาV3": "จิ้กจกจ๊าV3",
+  "เล่นทั้งวันความเท่าเดิม": "เล่นทั้งวันดาวเท่าเดิม",
+  "#พาย10%": "#ท้าย10%",
+  "เล่นเก่งตอนบ้านแข่ง": "เล่นเก่งตอนไม่แข่ง"
+};
+
+const defaultLiveStream = (): LiveStream => ({
+  matchId: "match-1",
+  streamUrl: "",
+  streamLabel: "Microsoft Teams",
+  note: "กดปุ่มด้านล่างเพื่อเข้าชมถ่ายทอดสดผ่าน Microsoft Teams",
+  isLive: false
+});
+
+function defaultMembersFor(name: string) {
+  return teamMembersByName[name] ?? teamMembersByName[memberAliases[name]] ?? [];
+}
 
 export function createSeedData(): AppData {
   const timestamp = now();
@@ -105,6 +156,7 @@ export function createSeedData(): AppData {
     logoUrl: avatarFor(index + 1),
     captainName: "",
     contact: "",
+    members: defaultMembersFor(seedTeamNames[index]),
     seedNumber: undefined,
     status: "ยังไม่แข่ง",
     createdAt: timestamp,
@@ -114,17 +166,18 @@ export function createSeedData(): AppData {
   return {
     tournament: {
       id: "nps-2026",
-      name: "NPS Tournament Playoff Dashboard",
+      name: "NPS ROV 2026 Match Center",
       status: "Not Started",
       isDrawLocked: false,
-      publicSlug: "nps-playoff-2026",
+      publicSlug: "nps-rov-2026",
       championTeamId: undefined,
       createdAt: timestamp,
       updatedAt: timestamp
     },
     teams,
     matches: createEmptyBracket(),
-    drawCards: createDrawCards()
+    drawCards: createDrawCards(),
+    liveStream: defaultLiveStream()
   };
 }
 
@@ -188,8 +241,10 @@ export function loadData(): AppData {
     const parsed = JSON.parse(raw) as AppData;
     return {
       ...parsed,
+      teams: normalizeTeams(parsed.teams ?? []),
       matches: parsed.matches?.length ? parsed.matches : createEmptyBracket(),
-      drawCards: parsed.drawCards?.length ? parsed.drawCards : createDrawCards()
+      drawCards: parsed.drawCards?.length ? parsed.drawCards : createDrawCards(),
+      liveStream: normalizeLiveStream(parsed.liveStream)
     };
   } catch {
     const seed = createSeedData();
@@ -218,8 +273,28 @@ export async function loadSharedData(): Promise<AppData> {
 function normalizeData(data: AppData): AppData {
   return {
     ...data,
+    teams: normalizeTeams(data.teams ?? []),
     matches: data.matches?.length ? data.matches : createEmptyBracket(),
-    drawCards: data.drawCards?.length ? data.drawCards : createDrawCards()
+    drawCards: data.drawCards?.length ? data.drawCards : createDrawCards(),
+    liveStream: normalizeLiveStream(data.liveStream)
+  };
+}
+
+function normalizeTeams(teams: Team[]): Team[] {
+  return teams.map((team) => ({
+    ...team,
+    members: Array.isArray(team.members) && team.members.length ? team.members : defaultMembersFor(team.name)
+  }));
+}
+
+function normalizeLiveStream(liveStream?: Partial<LiveStream>): LiveStream {
+  return {
+    ...defaultLiveStream(),
+    ...(liveStream ?? {}),
+    streamUrl: liveStream?.streamUrl ?? "",
+    streamLabel: liveStream?.streamLabel || "Microsoft Teams",
+    note: liveStream?.note || defaultLiveStream().note,
+    isLive: Boolean(liveStream?.isLive)
   };
 }
 
