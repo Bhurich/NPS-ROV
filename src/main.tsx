@@ -85,12 +85,13 @@ function useRoute() {
   return { path, go };
 }
 
-function useTournamentData() {
+function useTournamentData(pauseRefresh = false) {
   const [data, setData] = useState<AppData>(() => recalculate(loadData()));
 
   useEffect(() => {
     const refresh = async () => setData(recalculate(await loadSharedData()));
     refresh();
+    if (pauseRefresh) return;
     const timer = window.setInterval(refresh, 3000);
     window.addEventListener("storage", refresh);
     window.addEventListener("nps-data-change", refresh);
@@ -99,7 +100,7 @@ function useTournamentData() {
       window.removeEventListener("storage", refresh);
       window.removeEventListener("nps-data-change", refresh);
     };
-  }, []);
+  }, [pauseRefresh]);
 
   const commit = async (next: AppData) => {
     const calculated = recalculate(next);
@@ -123,9 +124,9 @@ function useTournamentData() {
 
 function App() {
   const { path, go } = useRoute();
-  const { data, commit } = useTournamentData();
   const [auth, setAuth] = useState(isAuthed());
   const isAdminPath = path.startsWith("/admin");
+  const { data, commit } = useTournamentData(isAdminPath);
 
   const requireAuth = (children: React.ReactNode) => {
     if (path === "/admin/login") return <LoginPage go={go} setAuth={setAuth} />;

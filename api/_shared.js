@@ -56,6 +56,7 @@ function defaultMembersFor(name) {
 
 function defaultLiveStream() {
   return {
+    id: "live-1",
     matchId: "match-1",
     streamUrl: "",
     streamLabel: "Microsoft Teams",
@@ -137,11 +138,13 @@ export function createSeedData() {
     })),
     matches: createEmptyBracket(),
     drawCards: createDrawCards(),
-    liveStream: defaultLiveStream()
+    liveStream: defaultLiveStream(),
+    liveStreams: [defaultLiveStream()]
   };
 }
 
 export function normalizeData(data) {
+  const liveStream = normalizeLiveStream(data.liveStream);
   return {
     ...data,
     teams: (data.teams ?? []).map((team) => ({
@@ -150,8 +153,28 @@ export function normalizeData(data) {
     })),
     matches: data.matches?.length ? data.matches : createEmptyBracket(),
     drawCards: data.drawCards?.length ? data.drawCards : createDrawCards(),
-    liveStream: { ...defaultLiveStream(), ...(data.liveStream ?? {}) }
+    liveStream,
+    liveStreams: normalizeLiveStreams(data.liveStreams, liveStream)
   };
+}
+
+function normalizeLiveStream(liveStream = {}) {
+  return {
+    ...defaultLiveStream(),
+    ...liveStream,
+    id: liveStream.id || defaultLiveStream().id,
+    streamUrl: liveStream.streamUrl ?? "",
+    streamLabel: liveStream.streamLabel || "Microsoft Teams",
+    note: liveStream.note || defaultLiveStream().note,
+    isLive: Boolean(liveStream.isLive)
+  };
+}
+
+function normalizeLiveStreams(liveStreams, liveStream) {
+  if (Array.isArray(liveStreams) && liveStreams.length) {
+    return liveStreams.map((item, index) => normalizeLiveStream({ ...item, id: item.id || `live-${index + 1}` }));
+  }
+  return [normalizeLiveStream(liveStream)];
 }
 
 function requiredEnv(name) {
