@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Lock,
   LogOut,
+  Menu,
   Medal,
   Play,
   RefreshCw,
@@ -22,6 +23,7 @@ import {
   Unlock,
   Users,
   Video,
+  X,
   Zap
 } from "lucide-react";
 import {
@@ -175,8 +177,27 @@ function App() {
 function TopNav({ path, go, auth, setAuth }: { path: string; go: (href: string) => void; auth: boolean; setAuth: (value: boolean) => void }) {
   const isAdmin = path.startsWith("/admin");
   const nav = isAdmin ? adminNav : publicNav;
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [path]);
+
+  const navigate = (href: string) => {
+    go(href);
+    setMenuOpen(false);
+  };
+
+  const handleAuth = () => {
+    if (auth) {
+      setAuthed(false);
+      setAuth(false);
+      navigate("/");
+    } else navigate("/admin/login");
+  };
+
   return (
-    <header className="topbar">
+    <header className={`topbar ${menuOpen ? "menu-open" : ""}`}>
       <button className="brand" onClick={() => go("/")}>
         <span className="brand-mark"><Trophy size={22} /></span>
         <span>
@@ -186,25 +207,32 @@ function TopNav({ path, go, auth, setAuth }: { path: string; go: (href: string) 
       </button>
       <nav className="nav-scroll">
         {nav.map((item) => (
-          <button key={item.href} className={`nav-pill ${path === item.href ? "active" : ""}`} onClick={() => go(item.href)}>
+          <button key={item.href} className={`nav-pill ${path === item.href ? "active" : ""}`} onClick={() => navigate(item.href)}>
             {item.icon}
             <span>{item.label}</span>
           </button>
         ))}
       </nav>
-      <button
-        className="ghost-btn"
-        onClick={() => {
-          if (auth) {
-            setAuthed(false);
-            setAuth(false);
-            go("/");
-          } else go("/admin/login");
-        }}
-      >
+      <button className="ghost-btn auth-btn" onClick={handleAuth}>
         {auth ? <LogOut size={17} /> : <Shield size={17} />}
         {auth ? "Logout" : "Admin"}
       </button>
+      <button className="mobile-menu-btn" onClick={() => setMenuOpen((open) => !open)} aria-label="Toggle menu" aria-expanded={menuOpen}>
+        {menuOpen ? <X size={24} /> : <Menu size={24} />}
+      </button>
+      {menuOpen && <button className="menu-backdrop" aria-label="Close menu" onClick={() => setMenuOpen(false)} />}
+      <div className="mobile-menu-panel">
+        {nav.map((item) => (
+          <button key={item.href} className={`mobile-menu-item ${path === item.href ? "active" : ""}`} onClick={() => navigate(item.href)}>
+            {item.icon}
+            <span>{item.label}</span>
+          </button>
+        ))}
+        <button className="mobile-menu-item" onClick={handleAuth}>
+          {auth ? <LogOut size={18} /> : <Shield size={18} />}
+          <span>{auth ? "Logout" : "Admin"}</span>
+        </button>
+      </div>
     </header>
   );
 }
