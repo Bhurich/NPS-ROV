@@ -347,13 +347,22 @@ function LiveStreamCard({ data, stream }: { data: AppData; stream: LiveStream })
           <div><small>ช่องทาง</small><strong>{stream.streamLabel || "Microsoft Teams"}</strong></div>
           <div><small>สถานะ</small><strong>{match ? match.status : "-"}</strong></div>
         </div>
-        {canWatch ? (
-          <a className="primary-btn live-link" href={stream.streamUrl} target="_blank" rel="noreferrer">
-            <ExternalLink size={18} /> เข้าชมถ่ายทอดสด
-          </a>
-        ) : (
-          <div className="notice">ยังไม่ได้ใส่ลิงก์ถ่ายทอดสด กรุณารอประกาศจาก Admin</div>
-        )}
+        <div className="live-actions">
+          {canWatch ? (
+            <a className="primary-btn live-link" href={stream.streamUrl} target="_blank" rel="noreferrer">
+              <ExternalLink size={18} /> เข้าชมถ่ายทอดสด
+            </a>
+          ) : (
+            <div className="notice">ยังไม่ได้ใส่ลิงก์ถ่ายทอดสด กรุณารอประกาศจาก Admin</div>
+          )}
+          {match?.replayUrl ? (
+            <a className="secondary-btn live-link" href={match.replayUrl} target="_blank" rel="noreferrer">
+              <Play size={18} /> {match.replayLabel || "ดูย้อนหลัง"}
+            </a>
+          ) : (
+            <button className="ghost-btn live-link" disabled><Play size={18} /> ยังไม่มีวิดีโอย้อนหลัง</button>
+          )}
+        </div>
       </div>
 
       <div className="live-versus-card">
@@ -776,6 +785,7 @@ function AdminLive({ data, commit }: { data: AppData; commit: (data: AppData) =>
         <a className="ghost-btn" href="/live" target="_blank" rel="noreferrer"><ExternalLink size={17} /> Preview Live Page</a>
         <span className={`notice mini ${isDirty ? "unsaved" : ""}`}>{isDirty ? "มีรายการ Live ที่ยังไม่บันทึก" : "ข้อมูล Live พร้อมใช้งาน"}</span>
       </div>
+      <div className="notice">ลิงก์ดูย้อนหลังใส่ได้ที่ Admin &gt; Matches ในช่อง Replay URL ของแต่ละแมตช์ แล้วปุ่มดูย้อนหลังจะแสดงบนหน้า Live อัตโนมัติ</div>
       <section className="live-admin-list">
         {streams.map((stream, index) => (
           <article className="panel live-admin-panel" key={stream.id}>

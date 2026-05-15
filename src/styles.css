@@ -124,6 +124,7 @@ textarea { min-height: 76px; padding: 10px 12px; resize: vertical; }
 .live-meta-grid div { padding: 12px; border-radius: 8px; background: rgba(2,6,23,.44); border: 1px solid rgba(255,255,255,.08); }
 .live-meta-grid small { display: block; color: #94a3b8; margin-bottom: 6px; }
 .live-meta-grid strong { overflow-wrap: anywhere; }
+.live-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .live-link { width: fit-content; min-width: 220px; }
 .live-versus-card { display: grid; grid-template-columns: 1fr 42px 1fr; gap: 12px; align-items: center; }
 .live-versus-card article { min-height: 260px; display: grid; align-content: center; justify-items: center; gap: 12px; text-align: center; padding: 18px; border-radius: 8px; background: rgba(2,6,23,.46); border: 1px solid rgba(255,255,255,.1); }
