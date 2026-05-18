@@ -344,6 +344,13 @@ function getLiveDisplayMatch(data: AppData, stream: LiveStream) {
     ?? data.matches[0];
 }
 
+function matchTeamName(data: AppData, match: Match, side: "A" | "B", fallback = "รอการจับสลาก") {
+  const teamId = side === "A" ? match.teamAId : match.teamBId;
+  const customLabel = side === "A" ? match.teamALabel : match.teamBLabel;
+  if (teamId) return teamName(data, teamId);
+  return customLabel?.trim() || fallback;
+}
+
 function LivePage({ data }: { data: AppData }) {
   const streams = getLiveStreams(data);
   const visibleStreams = streams.filter((stream) => stream.isLive || stream.streamUrl || stream.note).length ? streams.filter((stream) => stream.isLive || stream.streamUrl || stream.note) : streams;
@@ -367,7 +374,7 @@ function LiveStreamCard({ data, stream }: { data: AppData; stream: LiveStream })
     <section className={`live-watch-panel ${stream.isLive ? "is-live" : ""}`}>
       <div className="live-watch-copy">
         <span className="live-kicker">{stream.isLive ? "LIVE NOW" : "STREAM LINK"}</span>
-        <h2>{match ? `M${match.matchNumber}: ${teamName(data, match.teamAId)} vs ${teamName(data, match.teamBId)}` : "รอประกาศคู่ถ่ายทอดสด"}</h2>
+        <h2>{match ? `M${match.matchNumber}: ${matchTeamName(data, match, "A")} vs ${matchTeamName(data, match, "B")}` : "รอประกาศคู่ถ่ายทอดสด"}</h2>
         <p>{stream.note || "Admin จะประกาศลิงก์ถ่ายทอดสดก่อนเริ่มแข่งขัน"}</p>
         <div className="live-meta-grid">
           <div><small>วันที่</small><strong>{match?.matchDate ? formatDate(match.matchDate) : "รอกำหนด"}</strong></div>
@@ -394,9 +401,9 @@ function LiveStreamCard({ data, stream }: { data: AppData; stream: LiveStream })
       </div>
 
       <div className="live-versus-card">
-        <LiveTeamCard team={teamA} fallback="Team A" />
+        <LiveTeamCard team={teamA} fallback={match ? matchTeamName(data, match, "A", "Team A") : "Team A"} />
         <span className="versus big">VS</span>
-        <LiveTeamCard team={teamB} fallback="Team B" />
+        <LiveTeamCard team={teamB} fallback={match ? matchTeamName(data, match, "B", "Team B") : "Team B"} />
       </div>
     </section>
   );
@@ -406,7 +413,7 @@ function LiveTeamCard({ team, fallback }: { team?: Team; fallback: string }) {
   return (
     <article>
       <img src={team?.logoUrl || "https://api.dicebear.com/9.x/shapes/svg?seed=waiting"} alt={team?.name ?? fallback} />
-      <strong>{team?.name ?? "รอการจับสลาก"}</strong>
+      <strong>{team?.name ?? fallback}</strong>
       <span>{team?.members?.length ? `${team.members.length} Players` : fallback}</span>
     </article>
   );
@@ -460,8 +467,8 @@ function BracketMatch({ data, match }: { data: AppData; match: Match }) {
         <strong>M{match.matchNumber}</strong>
         <StatusBadge status={match.status} />
       </div>
-      <BracketTeam team={teamA} fallback={pendingLabel} score={match.teamAScoreGames} winner={match.winnerTeamId === match.teamAId} />
-      <BracketTeam team={teamB} fallback={pendingLabel} score={match.teamBScoreGames} winner={match.winnerTeamId === match.teamBId} />
+      <BracketTeam team={teamA} fallback={matchTeamName(data, match, "A", pendingLabel)} score={match.teamAScoreGames} winner={match.winnerTeamId === match.teamAId} />
+      <BracketTeam team={teamB} fallback={matchTeamName(data, match, "B", pendingLabel)} score={match.teamBScoreGames} winner={match.winnerTeamId === match.teamBId} />
       {match.winnerTeamId && <div className="advance-line">เข้ารอบ: <strong>{teamName(data, match.winnerTeamId)}</strong></div>}
     </article>
   );
@@ -483,7 +490,7 @@ function SchedulePage({ data }: { data: AppData }) {
   const [status, setStatus] = useState("all");
   const dates = [...new Set(data.matches.map((match) => match.matchDate).filter(Boolean))];
   const filtered = data.matches.filter((match) => {
-    const haystack = `${teamName(data, match.teamAId)} ${teamName(data, match.teamBId)} ${match.round} ${match.location}`.toLowerCase();
+    const haystack = `${matchTeamName(data, match, "A")} ${matchTeamName(data, match, "B")} ${match.round} ${match.location}`.toLowerCase();
     return haystack.includes(query.toLowerCase()) && (date === "all" || match.matchDate === date) && (status === "all" || match.status === status);
   });
   return (
@@ -520,7 +527,7 @@ function ScheduleRow({ data, match, table = false }: { data: AppData; match: Mat
     <>
       <span><strong>M{match.matchNumber}</strong><small>{match.round}</small></span>
       <span>{match.matchDate ? formatDate(match.matchDate) : "รอกำหนด"}<small>{match.matchTime || "-"}</small></span>
-      <span>{teamName(data, match.teamAId)} vs {teamName(data, match.teamBId)}<small>{match.location || "รอระบุสถานที่"}</small></span>
+      <span>{matchTeamName(data, match, "A")} vs {matchTeamName(data, match, "B")}<small>{match.location || "รอระบุสถานที่"}</small></span>
       <span><StatusBadge status={match.status} /></span>
       <span>{match.teamAScoreGames} - {match.teamBScoreGames}</span>
       <span>{match.winnerTeamId ? teamName(data, match.winnerTeamId) : ""}</span>
@@ -554,9 +561,9 @@ function ScoreCard({ data, match, compact = false }: { data: AppData; match: Mat
         <StatusBadge status={match.status} />
       </div>
       <div className="score-teams">
-        <ScoreTeam team={teamA} wins={match.teamAScoreGames} winner={match.winnerTeamId === match.teamAId} />
+        <ScoreTeam team={teamA} fallback={matchTeamName(data, match, "A")} wins={match.teamAScoreGames} winner={match.winnerTeamId === match.teamAId} />
         <span className="versus">VS</span>
-        <ScoreTeam team={teamB} wins={match.teamBScoreGames} winner={match.winnerTeamId === match.teamBId} />
+        <ScoreTeam team={teamB} fallback={matchTeamName(data, match, "B")} wins={match.teamBScoreGames} winner={match.winnerTeamId === match.teamBId} />
       </div>
       <div className="game-grid">
         {games.map(([a, b], index) => (
@@ -571,11 +578,11 @@ function ScoreCard({ data, match, compact = false }: { data: AppData; match: Mat
   );
 }
 
-function ScoreTeam({ team, wins, winner }: { team?: Team; wins: number; winner: boolean }) {
+function ScoreTeam({ team, fallback, wins, winner }: { team?: Team; fallback: string; wins: number; winner: boolean }) {
   return (
     <div className={`score-team ${winner ? "winner" : ""}`}>
       <img src={team?.logoUrl || "https://api.dicebear.com/9.x/shapes/svg?seed=waiting"} alt={team?.name ?? "waiting"} />
-      <strong>{team?.name ?? "รอการจับสลาก"}</strong>
+      <strong>{team?.name ?? fallback}</strong>
       <em>{wins}</em>
     </div>
   );
@@ -586,7 +593,7 @@ function ReplaysPage({ data }: { data: AppData }) {
   const replayMatches = data.matches
     .filter((match) => match.status === "Finished" || match.replayUrl)
     .filter((match) => {
-      const text = `${teamName(data, match.teamAId)} ${teamName(data, match.teamBId)} M${match.matchNumber} ${match.round}`.toLowerCase();
+      const text = `${matchTeamName(data, match, "A")} ${matchTeamName(data, match, "B")} M${match.matchNumber} ${match.round}`.toLowerCase();
       return text.includes(query.toLowerCase());
     })
     .sort((a, b) => b.matchNumber - a.matchNumber);
@@ -615,7 +622,7 @@ function ReplayCard({ data, match }: { data: AppData; match: Match }) {
       <div className="replay-teams">
         <img src={teamA?.logoUrl || "https://api.dicebear.com/9.x/shapes/svg?seed=team-a"} alt={teamA?.name ?? "Team A"} />
         <div>
-          <strong>{teamName(data, match.teamAId)} vs {teamName(data, match.teamBId)}</strong>
+          <strong>{matchTeamName(data, match, "A")} vs {matchTeamName(data, match, "B")}</strong>
           <span>{match.matchDate ? formatDate(match.matchDate) : "รอระบุวัน"} · {match.matchTime || "-"}</span>
           <em>Score {match.teamAScoreGames} - {match.teamBScoreGames}</em>
           {match.winnerTeamId && <em>Winner: {teamName(data, match.winnerTeamId)}</em>}
@@ -822,7 +829,7 @@ function AdminLive({ data, commit }: { data: AppData; commit: (data: AppData) =>
               <label>คู่ที่ถ่ายทอดสด
                 <select value={stream.matchId} onChange={(event) => updateStream(stream.id, { matchId: event.target.value })}>
                   {data.matches.map((match) => (
-                    <option key={match.id} value={match.id}>M{match.matchNumber} · {teamName(data, match.teamAId)} vs {teamName(data, match.teamBId)}</option>
+                    <option key={match.id} value={match.id}>M{match.matchNumber} · {matchTeamName(data, match, "A")} vs {matchTeamName(data, match, "B")}</option>
                   ))}
                 </select>
               </label>
@@ -1015,10 +1022,12 @@ function MatchEditor({ data, match, commit }: { data: AppData; match: Match; com
         <strong>M{match.matchNumber} · {match.round}</strong>
         <StatusBadge status={match.status} />
       </div>
-      <div className="match-admin-teams">{teamName(data, match.teamAId)} <span>vs</span> {teamName(data, match.teamBId)}</div>
+      <div className="match-admin-teams">{matchTeamName(data, match, "A")} <span>vs</span> {matchTeamName(data, match, "B")}</div>
       <div className="form-grid two">
         <label>Team A<select value={match.teamAId ?? ""} onChange={(event) => set({ ...clearScorePatch, teamAId: event.target.value || undefined })}><option value="">รอการจับสลาก</option>{data.teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select></label>
         <label>Team B<select value={match.teamBId ?? ""} onChange={(event) => set({ ...clearScorePatch, teamBId: event.target.value || undefined })}><option value="">รอการจับสลาก</option>{data.teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select></label>
+        <label>Team A Text<input value={match.teamALabel ?? ""} onChange={(event) => set({ teamALabel: event.target.value })} placeholder="เช่น ผู้ชนะ Semi Final M13" /></label>
+        <label>Team B Text<input value={match.teamBLabel ?? ""} onChange={(event) => set({ teamBLabel: event.target.value })} placeholder="เช่น ผู้ชนะ Semi Final M14" /></label>
         <label>Date<input type="date" value={match.matchDate} onChange={(event) => set({ matchDate: event.target.value })} /></label>
         <label>Time<input type="time" value={match.matchTime} onChange={(event) => set({ matchTime: event.target.value })} /></label>
         <label>Location<input value={match.location} onChange={(event) => set({ location: event.target.value })} /></label>
@@ -1053,7 +1062,7 @@ function AdminScoreboard({ data, commit }: { data: AppData; commit: (data: AppDa
     <PageFrame eyebrow="ADMIN" title="Live Score Control" subtitle="เลือก Match ที่กำลังแข่ง เพิ่มหรือลดคะแนนได้รวดเร็ว และแสดงผลบน Public Scoreboard ทันที">
       <div className="admin-actions">
         <select value={selected} onChange={(event) => setSelected(event.target.value)}>
-          {data.matches.map((item) => <option key={item.id} value={item.id}>M{item.matchNumber} · {teamName(data, item.teamAId)} vs {teamName(data, item.teamBId)}</option>)}
+          {data.matches.map((item) => <option key={item.id} value={item.id}>M{item.matchNumber} · {matchTeamName(data, item, "A")} vs {matchTeamName(data, item, "B")}</option>)}
         </select>
         <button className="secondary-btn" onClick={() => commit(updateMatch(data, match.id, { status: "Live" }))}><Play size={17} /> Mark as Live</button>
         <button className="primary-btn" onClick={() => commit(updateMatch(data, match.id, { status: "Finished" }))}><Trophy size={17} /> Finish Match</button>
@@ -1065,10 +1074,10 @@ function AdminScoreboard({ data, commit }: { data: AppData; commit: (data: AppDa
             <div className="control-row" key={game}>
               <strong>Game {game}</strong>
               <button onClick={() => patchScore(`game${game}TeamAScore` as keyof Match, -1)}>-</button>
-              <span>{teamName(data, match.teamAId)}</span>
+              <span>{matchTeamName(data, match, "A")}</span>
               <button onClick={() => patchScore(`game${game}TeamAScore` as keyof Match, 1)}>+</button>
               <button onClick={() => patchScore(`game${game}TeamBScore` as keyof Match, -1)}>-</button>
-              <span>{teamName(data, match.teamBId)}</span>
+              <span>{matchTeamName(data, match, "B")}</span>
               <button onClick={() => patchScore(`game${game}TeamBScore` as keyof Match, 1)}>+</button>
             </div>
           ))}
@@ -1081,7 +1090,7 @@ function AdminScoreboard({ data, commit }: { data: AppData; commit: (data: AppDa
 function AdminSettings({ data, commit }: { data: AppData; commit: (data: AppData) => void }) {
   const copyPublic = async () => navigator.clipboard.writeText(publicLink());
   const copyPairs = async () => {
-    const text = data.matches.slice(0, 8).map((match) => `Match ${match.matchNumber}: ${teamName(data, match.teamAId)} vs ${teamName(data, match.teamBId)} (${formatDate(match.matchDate)} ${match.matchTime})`).join("\n");
+    const text = data.matches.slice(0, 8).map((match) => `Match ${match.matchNumber}: ${matchTeamName(data, match, "A")} vs ${matchTeamName(data, match, "B")} (${formatDate(match.matchDate)} ${match.matchTime})`).join("\n");
     await navigator.clipboard.writeText(text);
   };
   const downloadCsv = () => {

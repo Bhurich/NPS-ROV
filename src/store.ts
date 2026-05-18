@@ -27,6 +27,8 @@ export type Match = {
   location: string;
   teamAId?: string;
   teamBId?: string;
+  teamALabel?: string;
+  teamBLabel?: string;
   teamAScoreGames: number;
   teamBScoreGames: number;
   game1TeamAScore?: number;
@@ -533,6 +535,13 @@ export function teamName(data: AppData, id?: string) {
   return data.teams.find((team) => team.id === id)?.name ?? "รอการจับสลาก";
 }
 
+function matchTeamName(data: AppData, match: Match, side: "A" | "B") {
+  const teamId = side === "A" ? match.teamAId : match.teamBId;
+  const customLabel = side === "A" ? match.teamALabel : match.teamBLabel;
+  if (teamId) return teamName(data, teamId);
+  return customLabel?.trim() || "รอการจับสลาก";
+}
+
 export function exportScheduleCsv(data: AppData) {
   const rows = [
     ["Match Number", "Round", "Date", "Time", "Location", "Team A", "Team B", "Status", "Score", "Winner", "Note"],
@@ -542,8 +551,8 @@ export function exportScheduleCsv(data: AppData) {
       match.matchDate,
       match.matchTime,
       match.location,
-      teamName(data, match.teamAId),
-      teamName(data, match.teamBId),
+      matchTeamName(data, match, "A"),
+      matchTeamName(data, match, "B"),
       match.status,
       `${match.teamAScoreGames}-${match.teamBScoreGames}`,
       teamName(data, match.winnerTeamId),
